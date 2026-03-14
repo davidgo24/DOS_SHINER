@@ -30,32 +30,17 @@ const DISPLAY_COLUMNS = [
   'labels', 'driverNotes', 'internalNotes', 'cancelled'
 ];
 
-// Starter template sections - used for the dropdown and default order
-const SECTION_TEMPLATES = [
-  '*paddle',
-  'AM Extra-Board',
-  'Mid Extra-Board',
-  'PM Extra-Board',
-  'Field 1',
-  'Field 2',
-  'Field 3',
-  'Field 4',
-  'Mid-Field',
-  'OPS',
-  'MID/OPS',
-  'Open',
-  'Closing',
-  'BTW/TRN',
-  'Classroom / BTW',
-  '(REV/TRN)',
-  'C/B',
-  'Sick',
-  'FMLA',
-  'P/L',
-  'VAC',
-  'Admin Leave',
-  'TTD',
+// Bucket-based configuration - fixed order, each bucket has paddles and color
+const BUCKET_DEFAULTS = [
+  { id: 'paddle', label: 'Paddle', color: 'FFFFFF', paddles: ['*paddle'], locked: true },
+  { id: 'extraBoard', label: 'Extra-Board', color: 'CCFBF1', paddles: ['AM Extra-Board', 'Mid Extra-Board', 'PM Extra-Board'], locked: false },
+  { id: 'supervisors', label: 'Supervisors', color: 'E0E7FF', paddles: ['FIELD SUPERVISOR', 'Field 1', 'Field 2', 'Field 3', 'Field 4', 'Mid-Field', 'OPS', 'MID/OPS', 'Open', 'Closing'], locked: false },
+  { id: 'trainees', label: 'Trainees', color: 'DDD6FE', paddles: ['BTW/TRN', 'Classroom / BTW', 'Classroom BTW / BTW', '(REV/TRN)', 'REV/TRN'], locked: false },
+  { id: 'leave', label: 'Leave', color: 'FCE7F3', paddles: ['Sick', 'TTD', 'FMLA', 'P/L', 'VAC', 'Admin Leave', 'C/B'], locked: false },
+  { id: 'other', label: 'Other', color: 'FFFFFF', paddles: [], locked: true },
 ];
+
+const STORAGE_KEYS = { buckets: 'dos_buckets', reportTitle: 'dos_report_title', reportDate: 'dos_report_date', exportLabel: 'dos_export_label', columnPadding: 'dos_column_padding', theme: 'dos_theme' };
 
 function findColumn(row, possibleNames) {
   for (const name of possibleNames) {
@@ -181,137 +166,163 @@ function getValue(row, colIndex) {
   return String(val).trim();
 }
 
-function classifyRow(paddleVal, sectionOrder) {
+function getBucketConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.buckets);
+    if (!raw) return BUCKET_DEFAULTS.map(b => ({ ...b, paddles: [...b.paddles] }));
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return BUCKET_DEFAULTS.map(b => ({ ...b, paddles: [...b.paddles] }));
+    const defaultsById = Object.fromEntries(BUCKET_DEFAULTS.map(b => [b.id, b]));
+    return parsed.map(b => {
+      const def = defaultsById[b.id];
+      return {
+        id: b.id,
+        label: b.label ?? def?.label ?? b.id,
+        color: b.color ?? def?.color ?? 'FFFFFF',
+        paddles: Array.isArray(b.paddles) ? b.paddles : (def?.paddles ? [...def.paddles] : []),
+        locked: def ? def.locked : (b.locked ?? false),
+      };
+    });
+  } catch (_) { return BUCKET_DEFAULTS.map(b => ({ ...b, paddles: [...b.paddles] })); }
+}
+
+function saveBucketConfig(buckets) {
+  localStorage.setItem(STORAGE_KEYS.buckets, JSON.stringify(buckets.map(b => ({ id: b.id, label: b.label, color: b.color, paddles: b.paddles, locked: b.locked }))));
+}
+
+function classifyRowToBucket(paddleVal, buckets) {
   const s = String(paddleVal || '').trim();
-  if (!s) return '_other';
+  if (!s) return 'other';
 
-  // First try to match explicit section names (non-*paddle)
-  for (const sec of sectionOrder) {
-    if (sec === '*paddle') continue;
-    const secNorm = sec.toUpperCase();
-    const valNorm = s.toUpperCase();
-    if (valNorm === secNorm || valNorm.includes(secNorm) || secNorm.includes(valNorm)) {
-      return sec;
-    }
-  }
-
-  // Numeric paddle blocks: 10001, 10002, 10011 (1/2), 10011 (2/2)
-  // NOT (REV/TRN) 10051 - that goes to (REV/TRN) section
+  // Numeric paddle blocks first
   if (/^\d{5}\s*$/.test(s) || /^\d{5}\s*\(\d+\/\d+\)/.test(s)) {
-    return '*paddle';
-  }
-  return '_other';
-}
-
-function getSectionOrder() {
-  const items = document.querySelectorAll('.section-item[data-section]');
-  return Array.from(items).map(el => el.dataset.section);
-}
-
-function createSectionItem(sectionName) {
-  const div = document.createElement('div');
-  div.className = 'section-item';
-  div.dataset.section = sectionName;
-  div.draggable = true;
-  div.innerHTML = `
-    <span class="section-drag-handle" title="Drag to reorder">⋮⋮</span>
-    <span class="section-label">${escapeHtml(sectionName)}</span>
-    <div class="section-actions">
-      <button type="button" class="btn-icon section-remove" title="Remove">×</button>
-    </div>
-  `;
-
-  div.querySelector('.section-remove').addEventListener('click', () => div.remove());
-
-  div.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', sectionName);
-    e.dataTransfer.effectAllowed = 'move';
-    div.classList.add('section-dragging');
-  });
-  div.addEventListener('dragend', () => div.classList.remove('section-dragging'));
-
-  div.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (div.classList.contains('section-dragging')) return;
-    const list = document.getElementById('sectionList');
-    const dragged = list.querySelector('.section-dragging');
-    if (!dragged) return;
-    const items = Array.from(list.querySelectorAll('.section-item'));
-    const rect = div.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const insertBefore = e.clientY < midY;
-    if (insertBefore && div.previousElementSibling !== dragged) {
-      list.insertBefore(dragged, div);
-    } else if (!insertBefore && div.nextElementSibling !== dragged) {
-      list.insertBefore(dragged, div.nextElementSibling);
-    }
-  });
-
-  return div;
-}
-
-function addSection(name) {
-  const trimmed = String(name || '').trim();
-  if (!trimmed) return;
-  const list = document.getElementById('sectionList');
-  const existing = Array.from(list.querySelectorAll('.section-item')).map(el => el.dataset.section);
-  if (existing.includes(trimmed)) return;
-  list.appendChild(createSectionItem(trimmed));
-}
-
-function initSectionOrder() {
-  const list = document.getElementById('sectionList');
-  const templateSelect = document.getElementById('sectionTemplate');
-  const customInput = document.getElementById('sectionCustomInput');
-
-  // Populate with default order
-  for (const name of SECTION_TEMPLATES) {
-    list.appendChild(createSectionItem(name));
+    return 'paddle';
   }
 
-  templateSelect.addEventListener('change', () => {
-    const val = templateSelect.value;
-    if (!val) return;
-    if (val === '__custom__') {
-      customInput.style.display = 'inline-block';
-      customInput.focus();
-    } else {
-      addSection(val);
+  const valNorm = s.toUpperCase();
+  for (const bucket of buckets) {
+    if (bucket.id === 'paddle' || bucket.id === 'other') continue;
+    for (const p of bucket.paddles) {
+      if (p === '*paddle') continue;
+      const pNorm = p.toUpperCase();
+      if (valNorm === pNorm || valNorm.includes(pNorm) || pNorm.includes(valNorm)) {
+        return bucket.id;
+      }
     }
-    templateSelect.value = '';
-  });
+  }
+  return 'other';
+}
 
-  customInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      addSection(customInput.value);
-      customInput.value = '';
-      customInput.style.display = 'none';
-    } else if (e.key === 'Escape') {
-      customInput.value = '';
-      customInput.style.display = 'none';
+function getBucketById(buckets, id) {
+  return buckets.find(b => b.id === id) || null;
+}
+
+function getBucketColor(bucketId, buckets) {
+  const b = getBucketById(buckets, bucketId);
+  return b ? b.color : 'FFFFFF';
+}
+
+function loadFromStorage(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (_) { return null; }
+}
+
+function saveToStorage(key, value) {
+  try { localStorage.setItem(key, value); } catch (_) {}
+}
+
+function initBuckets() {
+  const container = document.getElementById('bucketsList');
+  renderBuckets();
+  document.getElementById('addBucketBtn').addEventListener('click', addCustomBucket);
+}
+
+function renderBuckets() {
+  const buckets = getBucketConfig();
+  const container = document.getElementById('bucketsList');
+  container.innerHTML = '';
+  buckets.forEach((bucket, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bucket-card';
+    card.dataset.bucketId = bucket.id;
+    const paddlesStr = bucket.paddles.join(', ');
+    card.innerHTML = `
+      <div class="bucket-header">
+        <div class="bucket-swatch" style="background-color:#${bucket.color}"></div>
+        ${bucket.locked
+          ? `<span class="bucket-label">${escapeHtml(bucket.label)}</span>`
+          : `<input type="text" class="bucket-label-input" placeholder="Bucket name">`
+        }
+        ${!bucket.locked && bucket.id !== 'other' ? `<button type="button" class="btn-icon bucket-remove" title="Remove bucket">×</button>` : ''}
+      </div>
+      <div class="bucket-paddles">
+        <input type="text" data-bucket-id="${bucket.id}" placeholder="Paddles (comma-separated)…">
+      </div>
+    `;
+    const labelEl = card.querySelector('.bucket-label-input');
+    if (labelEl) labelEl.value = bucket.label;
+    const paddlesEl = card.querySelector('.bucket-paddles input');
+    paddlesEl.value = paddlesStr;
+    if (bucket.id === 'other') {
+      paddlesEl.disabled = true;
+      paddlesEl.placeholder = 'Unassigned rows appear here automatically';
+    } else if (bucket.id === 'paddle') {
+      paddlesEl.disabled = true;
+      paddlesEl.placeholder = 'Numeric blocks (10001–10077)';
     }
-  });
-  customInput.addEventListener('blur', () => {
-    if (customInput.value.trim()) {
-      addSection(customInput.value);
-      customInput.value = '';
+    const labelInput = card.querySelector('.bucket-label-input');
+    const paddlesInput = card.querySelector('.bucket-paddles input');
+    const removeBtn = card.querySelector('.bucket-remove');
+
+    if (labelInput) {
+      labelInput.addEventListener('change', () => {
+        const cfg = getBucketConfig();
+        const b = cfg.find(x => x.id === bucket.id);
+        if (b) { b.label = labelInput.value.trim() || b.label; saveBucketConfig(cfg); }
+      });
     }
-    customInput.style.display = 'none';
+    paddlesInput.addEventListener('change', () => {
+      const cfg = getBucketConfig();
+      const b = cfg.find(x => x.id === bucket.id);
+      if (b) {
+        b.paddles = paddlesInput.value.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+        saveBucketConfig(cfg);
+        reapplyTransform();
+      }
+    });
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        const cfg = getBucketConfig();
+        const filtered = cfg.filter(b => b.id !== bucket.id);
+        saveBucketConfig(filtered);
+        renderBuckets();
+        reapplyTransform();
+      });
+    }
+    container.appendChild(card);
   });
+}
+
+function addCustomBucket() {
+  const cfg = getBucketConfig();
+  const otherIdx = cfg.findIndex(b => b.id === 'other');
+  const newBucket = { id: 'custom_' + Date.now(), label: 'New bucket', color: 'E8E8E8', paddles: [], locked: false };
+  cfg.splice(otherIdx >= 0 ? otherIdx : cfg.length, 0, newBucket);
+  saveBucketConfig(cfg);
+  renderBuckets();
 }
 
 function transformRows(rows, colIndex) {
-  const sectionOrder = getSectionOrder();
-  const bySection = new Map();
-  for (const sec of sectionOrder) {
-    bySection.set(sec, []);
+  const buckets = getBucketConfig();
+  const byBucket = new Map();
+  for (const b of buckets) {
+    byBucket.set(b.id, []);
   }
-  bySection.set('_other', []);
 
   for (const row of rows) {
     const paddleVal = getValue(row, colIndex.paddle);
-    const section = classifyRow(paddleVal, sectionOrder);
+    const bucketId = classifyRowToBucket(paddleVal, buckets);
 
     const primaryDriver = getValue(row, colIndex.primaryDriver);
     const altDriver = getValue(row, colIndex.altDriver);
@@ -343,32 +354,17 @@ function transformRows(rows, colIndex) {
       altId: displayAltId,
       labels: getValue(row, colIndex.labels),
       driverNotes: notes,
-      internalNotes: '', // merged into driverNotes for display
+      internalNotes: '',
       cancelled: getValue(row, colIndex.cancelled),
-      _section: section,
+      _section: bucketId,
     };
 
-    if (bySection.has(section)) {
-      bySection.get(section).push(rec);
-    } else {
-      // Try partial match for section names (e.g. "AM Extra-Board" in section order)
-      let placed = false;
-      for (const sec of sectionOrder) {
-        if (sec === '*paddle') continue;
-        if (paddleVal.toUpperCase().includes(sec.toUpperCase()) || sec.toUpperCase().includes(paddleVal.toUpperCase())) {
-          bySection.get(sec).push(rec);
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        bySection.get('_other').push(rec);
-      }
-    }
+    const target = byBucket.get(bucketId) || byBucket.get('other');
+    if (target) target.push(rec);
   }
 
-  // Sort *paddle rows by block then paddle number
-  const paddleRows = bySection.get('*paddle') || [];
+  // Sort paddle bucket rows by block then paddle number
+  const paddleRows = byBucket.get('paddle') || [];
   paddleRows.sort((a, b) => {
     const blockA = parseInt(a.block, 10) || 99999;
     const blockB = parseInt(b.block, 10) || 99999;
@@ -379,11 +375,10 @@ function transformRows(rows, colIndex) {
   });
 
   const result = [];
-  for (const sec of sectionOrder) {
-    const rows = sec === '*paddle' ? paddleRows : (bySection.get(sec) || []);
-    result.push(...rows);
+  for (const b of buckets) {
+    const rowsForBucket = b.id === 'paddle' ? paddleRows : (byBucket.get(b.id) || []);
+    result.push(...rowsForBucket);
   }
-  result.push(...(bySection.get('_other') || []));
 
   return result;
 }
@@ -406,10 +401,13 @@ function renderTable(records, isHeader = false) {
   }
   html += '</tr></thead><tbody>';
 
+  const buckets = getBucketConfig();
   for (const r of records) {
-    const section = r._section || '';
-    const hasAltDriver = section === '*paddle' && !!(r.altDriver && String(r.altDriver).trim());
-    html += `<tr data-section="${escapeHtml(section)}"${hasAltDriver ? ' data-has-alt-driver="true"' : ''}>`;
+    const bucketId = r._section || '';
+    const hasAltDriver = bucketId === 'paddle' && !!(r.altDriver && String(r.altDriver).trim());
+    let fill = bucketId === 'footer' ? 'FFFFFF' : getBucketColor(bucketId, buckets);
+    if (bucketId === 'paddle') fill = hasAltDriver ? 'FFEB3B' : 'FFFFFF';
+    html += `<tr data-section="${escapeHtml(bucketId)}"${hasAltDriver ? ' data-has-alt-driver="true"' : ''} style="background-color:#${fill}">`;
     for (const k of keys) {
       html += `<td>${escapeHtml(r[k] || '')}</td>`;
     }
@@ -444,7 +442,9 @@ function processFile(buffer, filename = '') {
   // Auto-populate report date from filename (e.g. "Report_3-11-2026_to_3-17-2026.xlsx")
   const extractedDate = extractDateFromFilename(filename);
   if (extractedDate) {
-    document.getElementById('reportDate').value = extractedDate;
+    const reportDateEl = document.getElementById('reportDate');
+    reportDateEl.value = extractedDate;
+    saveToStorage(STORAGE_KEYS.reportDate, extractedDate);
   }
   // Auto-populate report title from preamble only when field is empty
   if (headerRowIndex > 0 && !document.getElementById('reportTitle').value.trim()) {
@@ -468,6 +468,14 @@ function processFile(buffer, filename = '') {
   table.innerHTML = renderTable(allRows);
   table.style.display = 'table';
   document.getElementById('noData').style.display = 'none';
+
+  const otherRows = transformed.filter(r => r._section === 'other');
+  const newPaddles = getNewPaddlesFromOther(otherRows);
+  if (newPaddles.length > 0) {
+    showNewPaddlesBanner(newPaddles);
+  } else {
+    hideNewPaddlesBanner();
+  }
 
   window.__lastTransformedData = { headers: Object.keys(transformed[0] || {}), rows: allRows, raw };
   return allRows;
@@ -501,46 +509,50 @@ function initDropZone() {
 }
 
 async function handleFile(file) {
-  const buffer = await file.arrayBuffer();
-  window.__lastBuffer = buffer;
-  processFile(buffer, file.name);
+  showLoading(true);
+  try {
+    const buffer = await file.arrayBuffer();
+    window.__lastBuffer = buffer;
+    window.__lastFilename = file.name;
+    processFile(buffer, file.name);
+  } catch (err) {
+    alert('Could not process the file. Make sure it is a valid Excel file with the expected columns.');
+    console.error(err);
+  } finally {
+    showLoading(false);
+  }
 }
 
-// Section-based fill colors (Julio's look) - hex without #
-const SECTION_FILL = {
-  '*paddle': 'FFFFFF', // Overridden per-row: highlighter yellow only when altDriver present
-  'AM Extra-Board': 'CCFBF1',
-  'PM Extra-Board': 'CCFBF1',
-  'Mid Extra-Board': 'CCFBF1',
-  'Mid-Field': 'E0E7FF',
-  'OPS': 'E0E7FF',
-  'MID/OPS': 'E0E7FF',
-  'Open': 'E0E7FF',
-  'Closing': 'E0E7FF',
-  'Field 1': 'E0E7FF',
-  'Field 2': 'E0E7FF',
-  'Field 3': 'E0E7FF',
-  'Field 4': 'E0E7FF',
-  'BTW/TRN': 'DDD6FE',
-  'Classroom / BTW': 'DDD6FE',
-  '(REV/TRN)': 'DDD6FE',
-  'Sick': 'FCE7F3',
-  'TTD': 'FCE7F3',
-  'FMLA': 'FCE7F3',
-  'P/L': 'FCE7F3',
-  'VAC': 'FCE7F3',
-  'Admin Leave': 'FCE7F3',
-  'C/B': 'FCE7F3',
-};
+function showLoading(show) {
+  let overlay = document.getElementById('loadingOverlay');
+  if (show) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'loadingOverlay';
+      overlay.className = 'loading-overlay';
+      overlay.innerHTML = '<div class="spinner"></div><span class="text">Processing…</span>';
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+  } else if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function resetApp() {
+  window.__lastBuffer = null;
+  window.__lastTransformedData = null;
+  window.__lastFilename = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('noData').textContent = 'Upload an Excel file to see the formatted preview';
+  document.getElementById('noData').style.display = 'block';
+  document.getElementById('outputTable').innerHTML = '';
+  document.getElementById('outputTable').style.display = 'none';
+  hideNewPaddlesBanner();
+}
+
 const DEFAULT_FILL = 'FFFFFF';
 const HEADER_FILL = 'F3F4F6';
-
-function getFillForSection(section) {
-  if (!section) return DEFAULT_FILL;
-  if (SECTION_FILL[section]) return SECTION_FILL[section];
-  if (section.startsWith('Field')) return SECTION_FILL[section] || 'E0E7FF';
-  return DEFAULT_FILL;
-}
 
 function exportExcel() {
   const data = window.__lastTransformedData;
@@ -581,10 +593,10 @@ function exportExcel() {
 
   // Style data rows - bold all, section fill
   data.rows.forEach((r, rowIdx) => {
-    const section = r._section || '';
-    let fill = getFillForSection(section);
-    // Numbered paddle rows only: yellow if alternate driver present, else white
-    if (section === '*paddle') {
+    const bucketId = r._section || '';
+    const buckets = getBucketConfig();
+    let fill = getBucketColor(bucketId, buckets);
+    if (bucketId === 'paddle') {
       fill = (r.altDriver && String(r.altDriver).trim()) ? 'FFEB3B' : 'FFFFFF'; // Highlighter yellow
     }
     const isFooter = section === 'footer';
@@ -650,7 +662,12 @@ function exportExcel() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Formatted Report');
-  XLSX.writeFile(wb, 'DOS_Report_Formatted.xlsx', { cellStyles: true });
+  const reportDate = document.getElementById('reportDate')?.value?.trim();
+  const dateSlug = reportDate ? reportDate.replace(/\s+/g, '_').replace(/\//g, '-').slice(0, 30) : '';
+  const label = document.getElementById('exportLabel')?.value?.trim() || '';
+  const base = dateSlug ? `DOS_Report_${dateSlug}` : 'DOS_Report_Formatted';
+  const filename = label ? `${base}_${label}.xlsx` : `${base}.xlsx`;
+  XLSX.writeFile(wb, filename, { cellStyles: true });
 }
 
 function printPdf() {
@@ -658,24 +675,110 @@ function printPdf() {
 }
 
 function reapplyTransform() {
-  if (window.__lastBuffer) {
-    processFile(window.__lastBuffer);
+  if (window.__lastBuffer) processFile(window.__lastBuffer, window.__lastFilename || '');
+}
+
+function getNewPaddlesFromOther(rows) {
+  const seen = new Set();
+  const result = [];
+  for (const r of rows) {
+    if (r._section !== 'other') continue;
+    const p = String(r.paddle || '').trim();
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      result.push(p);
+    }
   }
+  return result;
+}
+
+function showNewPaddlesBanner(newPaddles) {
+  const banner = document.getElementById('newPaddlesBanner');
+  const list = document.getElementById('newPaddlesList');
+  list.innerHTML = '';
+  const buckets = getBucketConfig().filter(b => b.id !== 'paddle' && b.id !== 'other');
+  window.__pendingNewPaddleAssignments = {};
+  newPaddles.forEach(p => {
+    window.__pendingNewPaddleAssignments[p] = '';
+    const row = document.createElement('div');
+    row.className = 'new-paddle-row';
+    const select = document.createElement('select');
+    select.dataset.paddle = p;
+    select.innerHTML = `<option value="">— Skip (stay in Other) —</option>${buckets.map(b => `<option value="${b.id}">${escapeHtml(b.label)}</option>`).join('')}`;
+    select.addEventListener('change', () => { window.__pendingNewPaddleAssignments[p] = select.value; });
+    row.innerHTML = `<label>${escapeHtml(p)}</label>`;
+    row.appendChild(select);
+    list.appendChild(row);
+  });
+  banner.style.display = 'block';
+}
+
+function hideNewPaddlesBanner() {
+  document.getElementById('newPaddlesBanner').style.display = 'none';
+}
+
+function applyNewPaddleAssignments() {
+  const assignments = window.__pendingNewPaddleAssignments || {};
+  const cfg = getBucketConfig();
+  for (const [paddle, bucketId] of Object.entries(assignments)) {
+    if (!bucketId) continue;
+    const b = cfg.find(x => x.id === bucketId);
+    if (b && !b.paddles.includes(paddle)) {
+      b.paddles.push(paddle);
+    }
+  }
+  saveBucketConfig(cfg);
+  hideNewPaddlesBanner();
+  reapplyTransform();
+}
+
+function initTheme() {
+  const saved = loadFromStorage(STORAGE_KEYS.theme);
+  const theme = saved === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  const btn = document.getElementById('themeToggle');
+  btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  btn.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    btn.textContent = next === 'dark' ? '☀️' : '🌙';
+    btn.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    saveToStorage(STORAGE_KEYS.theme, next);
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const reportTitleEl = document.getElementById('reportTitle');
+  const reportDateEl = document.getElementById('reportDate');
+  const columnPaddingEl = document.getElementById('columnPadding');
+
+  if (loadFromStorage(STORAGE_KEYS.reportTitle)) reportTitleEl.value = loadFromStorage(STORAGE_KEYS.reportTitle);
+  if (loadFromStorage(STORAGE_KEYS.reportDate)) reportDateEl.value = loadFromStorage(STORAGE_KEYS.reportDate);
+  const savedLabel = loadFromStorage(STORAGE_KEYS.exportLabel);
+  if (savedLabel) document.getElementById('exportLabel').value = savedLabel;
+  const pad = loadFromStorage(STORAGE_KEYS.columnPadding);
+  if (pad != null && pad !== '') columnPaddingEl.value = pad;
+
   initDropZone();
-  initSectionOrder();
+  initBuckets();
+  initTheme();
+
+  document.getElementById('newPaddlesSkip').addEventListener('click', () => { hideNewPaddlesBanner(); });
+  document.getElementById('newPaddlesApply').addEventListener('click', applyNewPaddleAssignments);
 
   document.getElementById('exportExcel').addEventListener('click', exportExcel);
   document.getElementById('printPdf').addEventListener('click', printPdf);
+  document.getElementById('resetBtn').addEventListener('click', resetApp);
 
-  document.getElementById('reportTitle').addEventListener('input', reapplyTransform);
-  document.getElementById('reportDate').addEventListener('input', reapplyTransform);
+  const persist = (key, el) => { el.addEventListener('input', () => saveToStorage(key, el.value)); el.addEventListener('change', () => saveToStorage(key, el.value)); };
+  persist(STORAGE_KEYS.reportTitle, reportTitleEl);
+  persist(STORAGE_KEYS.reportDate, reportDateEl);
+  persist(STORAGE_KEYS.exportLabel, document.getElementById('exportLabel'));
+  persist(STORAGE_KEYS.columnPadding, columnPaddingEl);
+
+  reportTitleEl.addEventListener('input', reapplyTransform);
+  reportDateEl.addEventListener('input', reapplyTransform);
   document.getElementById('columnOverride').addEventListener('input', reapplyTransform);
 
-  // Re-run transform when section list changes (add/remove/move)
-  const sectionList = document.getElementById('sectionList');
-  const observer = new MutationObserver(reapplyTransform);
-  observer.observe(sectionList, { childList: true });
-});
+  });

@@ -1,5 +1,5 @@
 /* DOS Report Formatter - Clean, professional styling */
-:root {
+:root, [data-theme="dark"] {
   --bg: #0f1419;
   --surface: #1a2332;
   --surface-elevated: #243044;
@@ -10,6 +10,17 @@
   --success: #3fb950;
   --border: #30363d;
   --font-sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+[data-theme="light"] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-elevated: #eaeef2;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --border: #d0d7de;
 }
 
 * {
@@ -34,6 +45,36 @@ body {
 /* Header */
 .header {
   margin-bottom: 2rem;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-top h1 {
+  margin: 0;
+}
+
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: var(--surface-elevated);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.theme-toggle:hover {
+  background: var(--border);
 }
 
 .header h1 {
@@ -132,7 +173,8 @@ body {
 }
 
 .config-group textarea,
-.config-group input {
+.config-group input,
+.config-group select {
   width: 100%;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
@@ -160,12 +202,25 @@ body {
   grid-column: 1 / -1;
 }
 
+.section-order-list {
+  margin-bottom: 0.75rem;
+}
+
+.section-list-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem 0;
+}
+
+.section-order-list:has(.section-item) .section-list-empty {
+  display: none;
+}
+
 .section-list {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin-bottom: 0.75rem;
-  min-height: 120px;
+  min-height: 60px;
 }
 
 .section-item {
@@ -266,6 +321,158 @@ body {
   cursor: pointer;
   font-weight: 500;
   margin-bottom: 0.5rem;
+}
+
+/* Buckets - assign paddles to buckets */
+.buckets-group {
+  grid-column: 1 / -1;
+}
+
+.buckets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.bucket-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bucket-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bucket-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.bucket-label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.bucket-label-input {
+  max-width: 140px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.bucket-remove {
+  opacity: 0.6;
+}
+
+.bucket-remove:hover {
+  opacity: 1;
+}
+
+.bucket-paddles {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.bucket-paddles input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* New paddles assignment banner */
+.new-paddles-banner {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.new-paddles-title {
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.new-paddles-hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.new-paddles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.new-paddle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.new-paddle-row label {
+  min-width: 120px;
+  font-size: 0.9rem;
+}
+
+.new-paddle-row select {
+  flex: 1;
+  max-width: 200px;
+  padding: 0.4rem 0.6rem;
+}
+
+.new-paddles-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-overlay .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-overlay .text {
+  position: absolute;
+  margin-top: 60px;
+  color: white;
+  font-size: 0.95rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Preview section */

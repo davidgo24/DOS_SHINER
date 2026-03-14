@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DOS Report Formatter</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2358a6ff'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM8 12h8v2H8v-2zm0 4h5v2H8v-2z'/></svg>" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -12,7 +13,10 @@
 <body>
   <div class="app">
     <header class="header">
-      <h1>DOS Report Formatter</h1>
+      <div class="header-top">
+        <h1>DOS Report Formatter</h1>
+        <button type="button" class="btn-icon theme-toggle" id="themeToggle" title="Toggle dark/light theme" aria-label="Toggle theme">☀️</button>
+      </div>
       <p class="subtitle">Drop your raw spreadsheet and transform it to the formatted layout</p>
     </header>
 
@@ -34,50 +38,28 @@
       <section class="config-section" id="configSection">
         <h2>Configuration</h2>
         <div class="config-grid">
-          <div class="config-group section-order-group">
-            <label>Section Order</label>
-            <p class="config-hint">Drag to reorder. Add from templates or add custom sections.</p>
-            <div class="section-list" id="sectionList"></div>
-            <div class="section-add">
-              <select id="sectionTemplate">
-                <option value="">Add section…</option>
-                <optgroup label="Starter templates">
-                  <option value="*paddle">*paddle (numeric blocks 10001–10077)</option>
-                  <option value="AM Extra-Board">AM Extra-Board</option>
-                  <option value="Mid Extra-Board">Mid Extra-Board</option>
-                  <option value="PM Extra-Board">PM Extra-Board</option>
-                  <option value="Field 1">Field 1</option>
-                  <option value="Field 2">Field 2</option>
-                  <option value="Field 3">Field 3</option>
-                  <option value="Field 4">Field 4</option>
-                  <option value="Mid-Field">Mid-Field</option>
-                  <option value="OPS">OPS</option>
-                  <option value="MID/OPS">MID/OPS</option>
-                  <option value="Open">Open</option>
-                  <option value="Closing">Closing</option>
-                  <option value="BTW/TRN">BTW/TRN</option>
-                  <option value="Classroom / BTW">Classroom / BTW</option>
-                  <option value="(REV/TRN)">(REV/TRN)</option>
-                  <option value="C/B">C/B</option>
-                  <option value="Sick">Sick</option>
-                  <option value="FMLA">FMLA</option>
-                  <option value="P/L">P/L</option>
-                  <option value="VAC">VAC</option>
-                  <option value="Admin Leave">Admin Leave</option>
-                  <option value="TTD">TTD</option>
-                </optgroup>
-                <option value="__custom__">Custom…</option>
-              </select>
-              <input type="text" id="sectionCustomInput" placeholder="Custom section name" class="section-custom-input" style="display:none">
-            </div>
+          <div class="config-group buckets-group">
+            <label>Buckets</label>
+            <p class="config-hint">Each paddle goes in one bucket. Add paddles to buckets or create new buckets. Order is fixed.</p>
+            <div class="buckets-list" id="bucketsList"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="addBucketBtn">+ Add bucket</button>
           </div>
           <div class="config-group">
             <label>Report Title</label>
-            <input type="text" id="reportTitle" value="" placeholder="e.g. SUPERVISORS ABSENT">
+            <input type="text" id="reportTitle" value="" placeholder="e.g. DOS Report">
           </div>
           <div class="config-group">
             <label>Report Date</label>
-            <input type="text" id="reportDate" value="WEDNESDAY - 3/11/2026" placeholder="e.g. WEDNESDAY - 3/11/2026">
+            <input type="text" id="reportDate" value="" placeholder="e.g. WEDNESDAY 3/14/2026">
+          </div>
+          <div class="config-group">
+            <label>Export label</label>
+            <p class="config-hint">Appends to filename before .xlsx (e.g. preliminary, final)</p>
+            <select id="exportLabel">
+              <option value="">None</option>
+              <option value="preliminary">Preliminary</option>
+              <option value="final">Final</option>
+            </select>
           </div>
           <details class="config-group advanced">
             <summary>Advanced</summary>
@@ -99,6 +81,7 @@
         <div class="preview-header">
           <h2>Preview</h2>
           <div class="preview-actions">
+            <button type="button" class="btn btn-secondary" id="resetBtn">New file</button>
             <button type="button" class="btn btn-secondary" id="exportExcel">Export Excel</button>
             <button type="button" class="btn btn-primary" id="printPdf">Print / Save as PDF</button>
           </div>
@@ -106,6 +89,17 @@
         <div class="table-wrapper" id="tableWrapper">
           <p class="no-data" id="noData">Upload an Excel file to see the formatted preview</p>
           <table class="output-table" id="outputTable"></table>
+        </div>
+        <div class="new-paddles-banner" id="newPaddlesBanner" style="display:none">
+          <div class="new-paddles-content">
+            <p class="new-paddles-title">Assign new paddle types to buckets</p>
+            <p class="new-paddles-hint">Choose a bucket for each—or skip and they'll stay in Other at the bottom.</p>
+            <div class="new-paddles-list" id="newPaddlesList"></div>
+            <div class="new-paddles-actions">
+              <button type="button" class="btn btn-secondary" id="newPaddlesSkip">Skip for now</button>
+              <button type="button" class="btn btn-primary" id="newPaddlesApply">Apply</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
