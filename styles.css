@@ -1,0 +1,495 @@
+/* DOS Report Formatter - Clean, professional styling */
+:root {
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --surface-elevated: #243044;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79b8ff;
+  --success: #3fb950;
+  --border: #30363d;
+  --font-sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Header */
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Upload / Drop zone */
+.upload-section {
+  margin-bottom: 2rem;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--surface);
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--surface-elevated);
+}
+
+.upload-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+}
+
+.drop-zone:hover .upload-icon,
+.drop-zone.dragover .upload-icon {
+  color: var(--accent);
+}
+
+.drop-content p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.browse {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Config section */
+.config-section {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.config-section h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.config-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.config-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem 0;
+}
+
+.config-group textarea,
+.config-group input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.config-group textarea {
+  resize: vertical;
+  min-height: 200px;
+}
+
+.config-group code {
+  background: var(--surface-elevated);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* Section order list */
+.section-order-group {
+  grid-column: 1 / -1;
+}
+
+.section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  min-height: 120px;
+}
+
+.section-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.section-item .section-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-item .section-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.section-item .btn-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.section-item .btn-icon:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.section-drag-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 0 0.25rem;
+  user-select: none;
+}
+
+.section-drag-handle:active {
+  cursor: grabbing;
+}
+
+.section-item:hover .section-drag-handle {
+  color: var(--text);
+}
+
+.section-item.section-dragging {
+  opacity: 0.5;
+}
+
+.section-add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.section-add select {
+  flex: 1;
+  max-width: 280px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.section-custom-input {
+  flex: 1;
+  max-width: 200px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.config-group.advanced {
+  grid-column: 1 / -1;
+}
+
+.config-group details summary {
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+/* Preview section */
+.preview-section {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.preview-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--surface-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+}
+
+/* Table - Julio's report-style coloring */
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.no-data {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.output-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  background: #fff;
+}
+
+.output-table th,
+.output-table td {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d1d5db;
+  text-align: center;
+  white-space: nowrap;
+  color: #1f2937;
+}
+
+.output-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+/* Section-based row colors (Julio's look) */
+/* Paddle rows: highlighter yellow only when alternate driver present, else white */
+.output-table tbody tr[data-section="*paddle"][data-has-alt-driver="true"] {
+  background: #ffeb3b;
+}
+.output-table tbody tr[data-section="*paddle"]:not([data-has-alt-driver="true"]) {
+  background: #fff;
+}
+
+.output-table tbody tr[data-section="AM Extra-Board"],
+.output-table tbody tr[data-section="PM Extra-Board"],
+.output-table tbody tr[data-section="Mid Extra-Board"] {
+  background: #ccfbf1;
+}
+
+.output-table tbody tr[data-section="Mid-Field"],
+.output-table tbody tr[data-section="OPS"],
+.output-table tbody tr[data-section="MID/OPS"],
+.output-table tbody tr[data-section="Open"],
+.output-table tbody tr[data-section="Closing"] {
+  background: #e0e7ff;
+}
+
+.output-table tbody tr[data-section="BTW/TRN"],
+.output-table tbody tr[data-section="Classroom / BTW"],
+.output-table tbody tr[data-section="(REV/TRN)"] {
+  background: #ddd6fe;
+}
+
+.output-table tbody tr[data-section="Sick"],
+.output-table tbody tr[data-section="TTD"],
+.output-table tbody tr[data-section="FMLA"],
+.output-table tbody tr[data-section="P/L"],
+.output-table tbody tr[data-section="VAC"],
+.output-table tbody tr[data-section="Admin Leave"],
+.output-table tbody tr[data-section="C/B"] {
+  background: #fce7f3;
+}
+
+.output-table tbody tr[data-section^="Field"] {
+  background: #e0e7ff;
+}
+
+.output-table tbody tr:not([data-section]),
+.output-table tbody tr[data-section=""],
+.output-table tbody tr[data-section="_other"],
+.output-table tbody tr[data-section="footer"] {
+  background: #fff;
+}
+
+/* Print styles */
+@page {
+  size: landscape;
+  margin: 0.5in;
+}
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: #000;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .upload-section,
+  .config-section,
+  .preview-header,
+  .btn {
+    display: none !important;
+  }
+
+  .table-wrapper {
+    border: none;
+  }
+
+  .output-table th,
+  .output-table td {
+    border: 1px solid #000;
+    color: #1f2937;
+  }
+
+  .output-table tbody tr[data-section="*paddle"][data-has-alt-driver="true"] {
+    background: #ffeb3b;
+  }
+  .output-table tbody tr[data-section="*paddle"]:not([data-has-alt-driver="true"]) {
+    background: #fff;
+  }
+
+  .output-table tbody tr[data-section="AM Extra-Board"],
+  .output-table tbody tr[data-section="PM Extra-Board"],
+  .output-table tbody tr[data-section="Mid Extra-Board"] {
+    background: #ccfbf1;
+  }
+
+  .output-table tbody tr[data-section="Mid-Field"],
+  .output-table tbody tr[data-section="OPS"],
+  .output-table tbody tr[data-section="MID/OPS"],
+  .output-table tbody tr[data-section="Open"],
+  .output-table tbody tr[data-section="Closing"] {
+    background: #e0e7ff;
+  }
+
+  .output-table tbody tr[data-section="BTW/TRN"],
+  .output-table tbody tr[data-section="Classroom / BTW"],
+  .output-table tbody tr[data-section="(REV/TRN)"] {
+    background: #ddd6fe;
+  }
+
+  .output-table tbody tr[data-section="Sick"],
+  .output-table tbody tr[data-section="TTD"],
+  .output-table tbody tr[data-section="FMLA"],
+  .output-table tbody tr[data-section="P/L"],
+  .output-table tbody tr[data-section="VAC"],
+  .output-table tbody tr[data-section="Admin Leave"],
+  .output-table tbody tr[data-section="C/B"] {
+    background: #fce7f3;
+  }
+
+  .output-table tbody tr[data-section^="Field"] {
+    background: #e0e7ff;
+  }
+
+  .output-table tbody tr:not([data-section]),
+  .output-table tbody tr[data-section=""],
+  .output-table tbody tr[data-section="_other"],
+  .output-table tbody tr[data-section="footer"] {
+    background: #fff;
+  }
+}

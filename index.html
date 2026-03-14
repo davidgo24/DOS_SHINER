@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOS Report Formatter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>DOS Report Formatter</h1>
+      <p class="subtitle">Drop your raw spreadsheet and transform it to the formatted layout</p>
+    </header>
+
+    <main class="main">
+      <section class="upload-section">
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+          <div class="drop-content">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p>Drop your Excel file here or <span class="browse">browse</span></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="config-section" id="configSection">
+        <h2>Configuration</h2>
+        <div class="config-grid">
+          <div class="config-group section-order-group">
+            <label>Section Order</label>
+            <p class="config-hint">Drag to reorder. Add from templates or add custom sections.</p>
+            <div class="section-list" id="sectionList"></div>
+            <div class="section-add">
+              <select id="sectionTemplate">
+                <option value="">Add section…</option>
+                <optgroup label="Starter templates">
+                  <option value="*paddle">*paddle (numeric blocks 10001–10077)</option>
+                  <option value="AM Extra-Board">AM Extra-Board</option>
+                  <option value="Mid Extra-Board">Mid Extra-Board</option>
+                  <option value="PM Extra-Board">PM Extra-Board</option>
+                  <option value="Field 1">Field 1</option>
+                  <option value="Field 2">Field 2</option>
+                  <option value="Field 3">Field 3</option>
+                  <option value="Field 4">Field 4</option>
+                  <option value="Mid-Field">Mid-Field</option>
+                  <option value="OPS">OPS</option>
+                  <option value="MID/OPS">MID/OPS</option>
+                  <option value="Open">Open</option>
+                  <option value="Closing">Closing</option>
+                  <option value="BTW/TRN">BTW/TRN</option>
+                  <option value="Classroom / BTW">Classroom / BTW</option>
+                  <option value="(REV/TRN)">(REV/TRN)</option>
+                  <option value="C/B">C/B</option>
+                  <option value="Sick">Sick</option>
+                  <option value="FMLA">FMLA</option>
+                  <option value="P/L">P/L</option>
+                  <option value="VAC">VAC</option>
+                  <option value="Admin Leave">Admin Leave</option>
+                  <option value="TTD">TTD</option>
+                </optgroup>
+                <option value="__custom__">Custom…</option>
+              </select>
+              <input type="text" id="sectionCustomInput" placeholder="Custom section name" class="section-custom-input" style="display:none">
+            </div>
+          </div>
+          <div class="config-group">
+            <label>Report Title</label>
+            <input type="text" id="reportTitle" value="" placeholder="e.g. SUPERVISORS ABSENT">
+          </div>
+          <div class="config-group">
+            <label>Report Date</label>
+            <input type="text" id="reportDate" value="WEDNESDAY - 3/11/2026" placeholder="e.g. WEDNESDAY - 3/11/2026">
+          </div>
+          <details class="config-group advanced">
+            <summary>Advanced</summary>
+            <div class="config-group">
+              <label>Excel column padding</label>
+              <p class="config-hint">Extra characters to add when auto-sizing. 0 = auto (proportional), 1–3 = extra room for long text</p>
+              <input type="number" id="columnPadding" value="0" min="0" max="5" step="1">
+            </div>
+            <div class="config-group">
+              <label>Column mapping override</label>
+              <p class="config-hint">Override column names if your export differs. Leave empty to use defaults. Format: <code>{"paddle": "YourColName", "block": "Block"}</code></p>
+              <textarea id="columnOverride" rows="4" placeholder='{}'></textarea>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="preview-section" id="previewSection">
+        <div class="preview-header">
+          <h2>Preview</h2>
+          <div class="preview-actions">
+            <button type="button" class="btn btn-secondary" id="exportExcel">Export Excel</button>
+            <button type="button" class="btn btn-primary" id="printPdf">Print / Save as PDF</button>
+          </div>
+        </div>
+        <div class="table-wrapper" id="tableWrapper">
+          <p class="no-data" id="noData">Upload an Excel file to see the formatted preview</p>
+          <table class="output-table" id="outputTable"></table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
