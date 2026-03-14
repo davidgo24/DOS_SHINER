@@ -34,8 +34,8 @@ const DISPLAY_COLUMNS = [
 const BUCKET_DEFAULTS = [
   { id: 'paddle', label: 'Paddle', color: 'FFFFFF', paddles: ['*paddle'], locked: true },
   { id: 'extraBoard', label: 'Extra-Board', color: 'CCFBF1', paddles: ['AM Extra-Board', 'Mid Extra-Board', 'PM Extra-Board'], locked: false },
-  { id: 'supervisors', label: 'Supervisors', color: 'E0E7FF', paddles: ['FIELD SUPERVISOR', 'Field 1', 'Field 2', 'Field 3', 'Field 4', 'Mid-Field', 'OPS', 'MID/OPS', 'Open', 'Closing'], locked: false },
   { id: 'trainees', label: 'Trainees', color: 'DDD6FE', paddles: ['BTW/TRN', 'Classroom / BTW', 'Classroom BTW / BTW', '(REV/TRN)', 'REV/TRN'], locked: false },
+  { id: 'supervisors', label: 'Supervisors', color: 'E0E7FF', paddles: ['FIELD SUPERVISOR', 'Field 1', 'Field 2', 'Field 3', 'Field 4', 'Mid-Field', 'OPS', 'MID/OPS', 'Open', 'Closing'], locked: false },
   { id: 'leave', label: 'Leave', color: 'FCE7F3', paddles: ['Sick', 'TTD', 'FMLA', 'P/L', 'VAC', 'Admin Leave', 'C/B'], locked: false },
   { id: 'other', label: 'Other', color: 'FFFFFF', paddles: [], locked: true },
 ];
@@ -402,17 +402,18 @@ function renderTable(records, isHeader = false) {
   html += '</tr></thead><tbody>';
 
   const buckets = getBucketConfig();
-  for (const r of records) {
+  records.forEach((r, idx) => {
     const bucketId = r._section || '';
     const hasAltDriver = bucketId === 'paddle' && !!(r.altDriver && String(r.altDriver).trim());
     let fill = bucketId === 'footer' ? 'FFFFFF' : getBucketColor(bucketId, buckets);
     if (bucketId === 'paddle') fill = hasAltDriver ? 'FFEB3B' : 'FFFFFF';
-    html += `<tr data-section="${escapeHtml(bucketId)}"${hasAltDriver ? ' data-has-alt-driver="true"' : ''} style="background-color:#${fill}">`;
+    const draggable = (bucketId !== 'paddle' && bucketId !== 'footer');
+    html += `<tr data-row-index="${idx}" data-bucket-id="${escapeHtml(bucketId)}"${hasAltDriver ? ' data-has-alt-driver="true"' : ''}${draggable ? ' draggable="true"' : ''} style="background-color:#${fill}">`;
     for (const k of keys) {
       html += `<td>${escapeHtml(r[k] || '')}</td>`;
     }
     html += '</tr>';
-  }
+  });
   html += '</tbody>';
   return html;
 }
@@ -421,6 +422,63 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+let _draggedRowIndex = null;
+let _draggedBucketId = null;
+
+function initTableRowDrag(table, allRows) {
+  const tbody = table.tBodies[0];
+  if (!tbody) return;
+
+  tbody.addEventListener('dragstart', (e) => {
+    const tr = e.target.closest('tr[draggable="true"]');
+    if (!tr) return;
+    _draggedRowIndex = parseInt(tr.dataset.rowIndex, 10);
+    _draggedBucketId = tr.dataset.bucketId;
+    tr.classList.add('row-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(_draggedRowIndex));
+  });
+
+  tbody.addEventListener('dragend', (e) => {
+    const tr = e.target.closest('tr');
+    if (tr) tr.classList.remove('row-dragging');
+    _draggedRowIndex = null;
+    _draggedBucketId = null;
+  });
+
+  tbody.addEventListener('dragover', (e) => {
+    const tr = e.target.closest('tr');
+    if (!tr || !_draggedBucketId) return;
+    const targetBucket = tr.dataset.bucketId;
+    if (targetBucket === _draggedBucketId && tr.draggable) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  });
+
+  tbody.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const tr = e.target.closest('tr');
+    if (!tr || _draggedRowIndex == null) return;
+    const toIndex = parseInt(tr.dataset.rowIndex, 10);
+    const targetBucket = tr.dataset.bucketId;
+    if (targetBucket !== _draggedBucketId) return;
+
+    const fromIndex = _draggedRowIndex;
+    if (fromIndex === toIndex) return;
+
+    const rows = [...allRows];
+    const [moved] = rows.splice(fromIndex, 1);
+    let insertAt = toIndex;
+    if (fromIndex < toIndex) insertAt--;
+    rows.splice(insertAt, 0, moved);
+
+    window.__lastTransformedData.rows = rows;
+    table.innerHTML = renderTable(rows);
+    initTableRowDrag(table, rows);
+  });
 }
 
 function processFile(buffer, filename = '') {
@@ -468,6 +526,7 @@ function processFile(buffer, filename = '') {
   table.innerHTML = renderTable(allRows);
   table.style.display = 'table';
   document.getElementById('noData').style.display = 'none';
+  initTableRowDrag(table, allRows);
 
   const otherRows = transformed.filter(r => r._section === 'other');
   const newPaddles = getNewPaddlesFromOther(otherRows);
@@ -599,7 +658,7 @@ function exportExcel() {
     if (bucketId === 'paddle') {
       fill = (r.altDriver && String(r.altDriver).trim()) ? 'FFEB3B' : 'FFFFFF'; // Highlighter yellow
     }
-    const isFooter = section === 'footer';
+    const isFooter = bucketId === 'footer';
     const isTitleDateRow = isFooter && rowIdx === footerRow1 - 1; // -1 because rowIdx is 0-based in data.rows
     const isPageBreakRow = isFooter && rowIdx === footerRow2 - 1;
 

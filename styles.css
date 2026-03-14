@@ -565,6 +565,18 @@ body {
   font-weight: 600;
 }
 
+.output-table tbody tr[draggable="true"] {
+  cursor: grab;
+}
+
+.output-table tbody tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.output-table tbody tr.row-dragging {
+  opacity: 0.6;
+}
+
 /* Section-based row colors (Julio's look) */
 /* Paddle rows: highlighter yellow only when alternate driver present, else white */
 .output-table tbody tr[data-section="*paddle"][data-has-alt-driver="true"] {
