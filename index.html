@@ -83,6 +83,7 @@
           <div class="preview-actions">
             <button type="button" class="btn btn-secondary" id="resetBtn">New file</button>
             <button type="button" class="btn btn-secondary" id="exportExcel">Export Excel</button>
+            <button type="button" class="btn btn-secondary" id="multiEntryReportBtn">Multi-Entry Report</button>
             <button type="button" class="btn btn-primary" id="printPdf">Print / Save as PDF</button>
           </div>
         </div>
@@ -90,6 +91,14 @@
           <p class="no-data" id="noData">Upload an Excel file to see the formatted preview</p>
           <table class="output-table" id="outputTable"></table>
         </div>
+        <details class="multi-entry-report" id="multiEntryReport">
+          <summary>Employee row counts</summary>
+          <div class="multi-entry-content">
+            <p class="multi-entry-summary" id="multiEntrySummary"></p>
+            <div class="multi-entry-table-wrap" id="multiEntryTableWrap"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="exportMultiEntryBtn">Export to Excel</button>
+          </div>
+        </details>
         <div class="new-paddles-banner" id="newPaddlesBanner" style="display:none">
           <div class="new-paddles-content">
             <p class="new-paddles-title">Assign new paddle types to buckets</p>

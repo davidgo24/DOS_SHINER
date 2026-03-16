@@ -478,6 +478,7 @@ function initTableRowDrag(table, allRows) {
     window.__lastTransformedData.rows = rows;
     table.innerHTML = renderTable(rows);
     initTableRowDrag(table, rows);
+    updateMultiEntryReport(rows);
   });
 }
 
@@ -537,6 +538,7 @@ function processFile(buffer, filename = '') {
   }
 
   window.__lastTransformedData = { headers: Object.keys(transformed[0] || {}), rows: allRows, raw };
+  updateMultiEntryReport(allRows);
   return allRows;
 }
 
@@ -608,6 +610,85 @@ function resetApp() {
   document.getElementById('outputTable').innerHTML = '';
   document.getElementById('outputTable').style.display = 'none';
   hideNewPaddlesBanner();
+  updateMultiEntryReport(null);
+}
+
+/** Group rows by employee (primary + alt), exclude footer. Returns { name, id, primaryCount, altCount, total } sorted by total desc. */
+function computeEmployeeRowCounts(rows) {
+  if (!rows || !rows.length) return [];
+  const byEmployee = new Map(); // key -> { name, id, primaryCount, altCount }
+  const getKey = (id, name) => {
+    const tid = String(id ?? '').trim();
+    const tname = String(name ?? '').trim();
+    if (tid) return tid;
+    if (tname) return 'n:' + tname;
+    return null;
+  };
+  const ensure = (key, name, id) => {
+    if (!byEmployee.has(key)) {
+      byEmployee.set(key, { name: name || '(no name)', id: id ?? '', primaryCount: 0, altCount: 0 });
+    }
+    return byEmployee.get(key);
+  };
+  for (const r of rows) {
+    if (r._section === 'footer') continue;
+    const pKey = getKey(r.primaryId, r.primaryDriver);
+    if (pKey) ensure(pKey, r.primaryDriver, r.primaryId).primaryCount++;
+    const aKey = getKey(r.altId, r.altDriver);
+    if (aKey) ensure(aKey, r.altDriver, r.altId).altCount++;
+  }
+  return Array.from(byEmployee.entries())
+    .map(([_, v]) => ({ ...v, total: v.primaryCount + v.altCount }))
+    .filter(e => e.total > 0)
+    .sort((a, b) => b.total - a.total);
+}
+
+function updateMultiEntryReport(rows) {
+  const block = document.getElementById('multiEntryReport');
+  const summaryEl = document.getElementById('multiEntrySummary');
+  const tableWrap = document.getElementById('multiEntryTableWrap');
+  if (!block || !summaryEl || !tableWrap) return;
+
+  if (!rows || rows.length === 0) {
+    block.style.display = 'none';
+    return;
+  }
+
+  const counts = computeEmployeeRowCounts(rows);
+  const multiEntry = counts.filter(c => c.total >= 2);
+  block.style.display = 'block';
+  block.open = true; // expand by default when data loads
+  summaryEl.textContent = counts.length
+    ? `${counts.length} employees · ${multiEntry.length} with 2+ total rows (Primary / Alt / Total)`
+    : '';
+
+  let html = '<table class="multi-entry-table"><thead><tr><th>Driver</th><th>ID</th><th>Primary</th><th>Alt</th><th>Total</th></tr></thead><tbody>';
+  for (const c of counts) {
+    const rowClass = c.total >= 2 ? ' class="multi-entry-highlight"' : '';
+    html += `<tr${rowClass}><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.id)}</td><td>${c.primaryCount}</td><td>${c.altCount}</td><td>${c.total}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+}
+
+function exportMultiEntryExcel() {
+  const data = window.__lastTransformedData;
+  if (!data || !data.rows || !data.rows.length) {
+    alert('No data to export. Please upload a file first.');
+    return;
+  }
+  const counts = computeEmployeeRowCounts(data.rows);
+  const wsData = [
+    ['Driver', 'ID', 'Primary', 'Alt', 'Total'],
+    ...counts.map(c => [c.name, c.id, c.primaryCount, c.altCount, c.total]),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Employee Row Counts');
+  const label = document.getElementById('exportLabel')?.value || 'Preliminary';
+  const date = document.getElementById('reportDate')?.value || '';
+  const fn = `Employee_Row_Counts_${date || 'report'}_${label.replace(/\s/g, '_')}.xlsx`;
+  XLSX.writeFile(wb, fn);
 }
 
 const DEFAULT_FILL = 'FFFFFF';
@@ -829,6 +910,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportExcel').addEventListener('click', exportExcel);
   document.getElementById('printPdf').addEventListener('click', printPdf);
   document.getElementById('resetBtn').addEventListener('click', resetApp);
+  document.getElementById('multiEntryReportBtn').addEventListener('click', () => {
+    const details = document.getElementById('multiEntryReport');
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+  document.getElementById('exportMultiEntryBtn').addEventListener('click', exportMultiEntryExcel);
 
   const persist = (key, el) => { el.addEventListener('input', () => saveToStorage(key, el.value)); el.addEventListener('change', () => saveToStorage(key, el.value)); };
   persist(STORAGE_KEYS.reportTitle, reportTitleEl);
