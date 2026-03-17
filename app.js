@@ -329,10 +329,10 @@ function transformRows(rows, colIndex) {
     const primaryId = getValue(row, colIndex.primaryId);
     const altId = getValue(row, colIndex.altId);
 
-    const displayPrimary = primaryDriver || altDriver;
-    const displayPrimaryId = primaryDriver ? primaryId : altId;
-    const displayAlt = primaryDriver ? altDriver : '';
-    const displayAltId = primaryDriver ? altId : '';
+    const displayPrimary = primaryDriver;
+    const displayPrimaryId = primaryId;
+    const displayAlt = altDriver;
+    const displayAltId = altId;
 
     const driverNotes = getValue(row, colIndex.driverNotes);
     const internalNotes = getValue(row, colIndex.internalNotes);
