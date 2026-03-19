@@ -428,6 +428,7 @@ function renderTable(records, isHeader = false) {
   html += '</tr></thead><tbody>';
 
   const buckets = getBucketConfig();
+  const colCount = keys.length;
   records.forEach((r, idx) => {
     const bucketId = r._section || '';
     const hasAltDriver = bucketId === 'paddle' && !!(r.altDriver && String(r.altDriver).trim());
@@ -435,8 +436,14 @@ function renderTable(records, isHeader = false) {
     if (bucketId === 'paddle') fill = hasAltDriver ? 'FFEB3B' : 'FFFFFF';
     const draggable = (bucketId !== 'paddle' && bucketId !== 'footer');
     html += `<tr data-row-index="${idx}" data-bucket-id="${escapeHtml(bucketId)}"${hasAltDriver ? ' data-has-alt-driver="true"' : ''}${draggable ? ' draggable="true"' : ''} style="background-color:#${fill}">`;
-    for (const k of keys) {
-      html += `<td>${escapeHtml(r[k] || '')}</td>`;
+    if (bucketId === 'footer') {
+      const isTitleDate = records.length >= 2 && idx === records.length - 2;
+      const cellText = isTitleDate ? [r.paddle, r.primaryDriver].filter(Boolean).join('\n') : (r.paddle || '');
+      html += `<td colspan="${colCount}" style="text-align:center;font-weight:bold;font-size:${isTitleDate ? '1.1em' : '1em'}">${escapeHtml(cellText)}</td>`;
+    } else {
+      for (const k of keys) {
+        html += `<td>${escapeHtml(r[k] || '')}</td>`;
+      }
     }
     html += '</tr>';
   });
@@ -563,8 +570,14 @@ function processFile(buffer, filename = '') {
     hideNewPaddlesBanner();
   }
 
-  window.__lastTransformedData = { headers: Object.keys(transformed[0] || {}), rows: allRows, raw };
+  window.__lastTransformedData = {
+    headers: Object.keys(transformed[0] || {}),
+    rows: allRows,
+    raw,
+    _audit: { headerRowIndex, colIndex, dataRowsCount: dataRows.length },
+  };
   updateMultiEntryReport(allRows);
+  updateDataIntegrityAudit();
   return allRows;
 }
 
@@ -637,6 +650,7 @@ function resetApp() {
   document.getElementById('outputTable').style.display = 'none';
   hideNewPaddlesBanner();
   updateMultiEntryReport(null);
+  updateDataIntegrityAudit();
 }
 
 /** Group rows by employee (primary + alt), exclude footer. Returns { name, id, primaryCount, altCount, total } sorted by total desc. */
@@ -697,6 +711,136 @@ function updateMultiEntryReport(rows) {
   tableWrap.innerHTML = html;
 }
 
+const FINGERPRINT_DELIM = '\x1f';
+
+function fingerprintFromRaw(row, colIndex) {
+  const driverNotes = getValue(row, colIndex.driverNotes);
+  const internalNotes = getValue(row, colIndex.internalNotes);
+  const notes = [driverNotes, internalNotes].filter(Boolean).join(' ');
+  const parts = [
+    getValue(row, colIndex.paddle),
+    getValue(row, colIndex.block),
+    getValue(row, colIndex.plannedStart),
+    getValue(row, colIndex.plannedEnd),
+    getValue(row, colIndex.plannedHrs),
+    getValue(row, colIndex.vehicle),
+    getValue(row, colIndex.actualStart),
+    getValue(row, colIndex.actualEnd),
+    getValue(row, colIndex.trim),
+    getValue(row, colIndex.primaryDriver),
+    getValue(row, colIndex.primaryId),
+    getValue(row, colIndex.altDriver),
+    getValue(row, colIndex.altId),
+    getValue(row, colIndex.labels),
+    notes,
+    getValue(row, colIndex.cancelled),
+  ];
+  return parts.map(p => String(p ?? '').trim()).join(FINGERPRINT_DELIM);
+}
+
+function fingerprintFromRecord(rec) {
+  const parts = [
+    rec.paddle,
+    rec.block,
+    rec.plannedStart,
+    rec.plannedEnd,
+    rec.plannedHrs,
+    rec.vehicle,
+    rec.actualStart,
+    rec.actualEnd,
+    rec.trim,
+    rec.primaryDriver,
+    rec.primaryId,
+    rec.altDriver,
+    rec.altId,
+    rec.labels,
+    rec.driverNotes,
+    rec.cancelled,
+  ];
+  return parts.map(p => String(p ?? '').trim()).join(FINGERPRINT_DELIM);
+}
+
+function runDataIntegrityAudit() {
+  const data = window.__lastTransformedData;
+  if (!data?.raw || !data._audit) return null;
+
+  const { headerRowIndex, colIndex } = data._audit;
+  const dataRows = data.raw.slice(headerRowIndex + 1);
+  const transformed = data.rows.filter(r => r._section !== 'footer');
+
+  const countMatch = dataRows.length === transformed.length;
+
+  const origFps = dataRows.map(row => fingerprintFromRaw(row, colIndex));
+  const transFps = transformed.map(rec => fingerprintFromRecord(rec));
+
+  origFps.sort();
+  transFps.sort();
+  const contentMatch = origFps.length === transFps.length && origFps.every((fp, i) => fp === transFps[i]);
+
+  const origCounts = {};
+  const transCounts = {};
+  for (const fp of origFps) origCounts[fp] = (origCounts[fp] || 0) + 1;
+  for (const fp of transFps) transCounts[fp] = (transCounts[fp] || 0) + 1;
+  let inOrigNotTrans = 0;
+  let inTransNotOrig = 0;
+  const allFps = new Set([...Object.keys(origCounts), ...Object.keys(transCounts)]);
+  for (const fp of allFps) {
+    const o = origCounts[fp] || 0;
+    const t = transCounts[fp] || 0;
+    if (o > t) inOrigNotTrans += o - t;
+    if (t > o) inTransNotOrig += t - o;
+  }
+
+  return {
+    countMatch,
+    contentMatch,
+    originalCount: dataRows.length,
+    transformedCount: transformed.length,
+    inOrigNotTrans,
+    inTransNotOrig,
+  };
+}
+
+function updateDataIntegrityAudit() {
+  const block = document.getElementById('dataIntegrityAudit');
+  const summaryEl = document.getElementById('dataIntegritySummary');
+  const detailsEl = document.getElementById('dataIntegrityDetails');
+  if (!block || !summaryEl || !detailsEl) return;
+
+  const data = window.__lastTransformedData;
+  if (!data?.raw || !data._audit) {
+    block.style.display = 'none';
+    return;
+  }
+
+  const result = runDataIntegrityAudit();
+  if (!result) {
+    block.style.display = 'none';
+    return;
+  }
+
+  block.style.display = 'block';
+  const ok = result.countMatch && result.contentMatch;
+
+  summaryEl.textContent = ok
+    ? 'All data preserved — no rows or names lost'
+    : 'Mismatch detected — review details below';
+  summaryEl.className = 'data-integrity-summary ' + (ok ? 'data-integrity-ok' : 'data-integrity-error');
+
+  let details = `Original rows: ${result.originalCount} · Transformed rows: ${result.transformedCount}`;
+  if (result.countMatch) {
+    details += ' · Row count match';
+  } else {
+    details += ' · Row count mismatch';
+  }
+  if (result.contentMatch) {
+    details += ' · Content match';
+  } else {
+    details += ` · Content mismatch (${result.inOrigNotTrans} in original not in output, ${result.inTransNotOrig} in output not in original)`;
+  }
+  detailsEl.textContent = details;
+}
+
 function exportMultiEntryExcel() {
   const data = window.__lastTransformedData;
   if (!data || !data.rows || !data.rows.length) {
@@ -730,7 +874,15 @@ function exportExcel() {
   const headers = ['Paddle', 'Block', 'Planned Shift Start', 'Planned Shift End', 'Hrs (Planned)', 'Vehicle', 'Actual Start', 'Actual End', 'Trim', 'Primary Driver', 'ID', 'Alternative Driver', 'Alt ID', 'Labels', 'Driver Notes', 'Internal Notes', 'Was Cancelled'];
   const keys = ['paddle', 'block', 'plannedStart', 'plannedEnd', 'plannedHrs', 'vehicle', 'actualStart', 'actualEnd', 'trim', 'primaryDriver', 'primaryId', 'altDriver', 'altId', 'labels', 'driverNotes', 'internalNotes', 'cancelled'];
 
-  const wsData = [headers, ...data.rows.map(r => keys.map(k => r[k] ?? ''))];
+  const wsData = [headers, ...data.rows.map((r, rowIdx) => {
+    if (r._section === 'footer') {
+      const row = new Array(keys.length).fill('');
+      const isTitleDate = data.rows.length >= 2 && rowIdx === data.rows.length - 2;
+      row[0] = isTitleDate ? [r.paddle, r.primaryDriver].filter(Boolean).join('\n') : (r.paddle || '');
+      return row;
+    }
+    return keys.map(k => r[k] ?? '');
+  })];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
   const thinBlack = { style: 'thin', color: { rgb: '000000' } };
@@ -940,6 +1092,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('resetBtn').addEventListener('click', resetApp);
   document.getElementById('multiEntryReportBtn').addEventListener('click', () => {
     const details = document.getElementById('multiEntryReport');
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+  document.getElementById('dataIntegrityAuditBtn').addEventListener('click', () => {
+    const details = document.getElementById('dataIntegrityAudit');
     if (details) {
       details.open = true;
       details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

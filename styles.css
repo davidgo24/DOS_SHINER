@@ -782,3 +782,27 @@ body {
   padding: 0.35rem 0.7rem;
   font-size: 0.85rem;
 }
+
+/* Data Integrity Audit */
+.data-integrity-summary {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.data-integrity-summary.data-integrity-ok {
+  color: var(--success);
+}
+
+.data-integrity-summary.data-integrity-error {
+  color: #f85149;
+}
+
+[data-theme="light"] .data-integrity-summary.data-integrity-error {
+  color: #cf222e;
+}
+
+.data-integrity-details {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

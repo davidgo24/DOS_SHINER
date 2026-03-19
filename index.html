@@ -92,6 +92,7 @@
             <button type="button" class="btn btn-secondary" id="resetBtn">New file</button>
             <button type="button" class="btn btn-secondary" id="exportExcel">Export Excel</button>
             <button type="button" class="btn btn-secondary" id="multiEntryReportBtn">Multi-Entry Report</button>
+            <button type="button" class="btn btn-secondary" id="dataIntegrityAuditBtn">Data Integrity Audit</button>
             <button type="button" class="btn btn-primary" id="printPdf">Print / Save as PDF</button>
           </div>
         </div>
@@ -105,6 +106,13 @@
             <p class="multi-entry-summary" id="multiEntrySummary"></p>
             <div class="multi-entry-table-wrap" id="multiEntryTableWrap"></div>
             <button type="button" class="btn btn-secondary btn-sm" id="exportMultiEntryBtn">Export to Excel</button>
+          </div>
+        </details>
+        <details class="multi-entry-report data-integrity-audit" id="dataIntegrityAudit" style="display:none">
+          <summary>Data Integrity Audit</summary>
+          <div class="multi-entry-content">
+            <p class="data-integrity-summary" id="dataIntegritySummary"></p>
+            <p class="data-integrity-details" id="dataIntegrityDetails"></p>
           </div>
         </details>
         <div class="new-paddles-banner" id="newPaddlesBanner" style="display:none">
