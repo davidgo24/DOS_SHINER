@@ -40,7 +40,7 @@ const BUCKET_DEFAULTS = [
   { id: 'other', label: 'Other', color: 'FFFFFF', paddles: [], locked: true },
 ];
 
-const STORAGE_KEYS = { buckets: 'dos_buckets', reportTitle: 'dos_report_title', reportDate: 'dos_report_date', exportLabel: 'dos_export_label', columnPadding: 'dos_column_padding', theme: 'dos_theme' };
+const STORAGE_KEYS = { buckets: 'dos_buckets', reportTitle: 'dos_report_title', reportDate: 'dos_report_date', exportLabel: 'dos_export_label', sortOrder: 'dos_sort_order', columnPadding: 'dos_column_padding', theme: 'dos_theme' };
 
 function findColumn(row, possibleNames) {
   for (const name of possibleNames) {
@@ -363,20 +363,46 @@ function transformRows(rows, colIndex) {
     if (target) target.push(rec);
   }
 
-  // Sort paddle bucket rows by block then paddle number
+  const sortOrder = document.getElementById('sortOrder')?.value || 'default';
+
+  function getLastNameForSort(rec) {
+    const name = (rec.primaryDriver || rec.altDriver || '').trim();
+    if (!name) return '';
+    if (name.includes(',')) return name.split(',')[0].trim();
+    const parts = name.split(/\s+/);
+    return parts.length > 1 ? parts[parts.length - 1] : name;
+  }
+
+  function sortByLastName(rows) {
+    rows.sort((a, b) => {
+      const lastA = getLastNameForSort(a);
+      const lastB = getLastNameForSort(b);
+      return lastA.localeCompare(lastB, undefined, { sensitivity: 'base' });
+    });
+  }
+
   const paddleRows = byBucket.get('paddle') || [];
-  paddleRows.sort((a, b) => {
-    const blockA = parseInt(a.block, 10) || 99999;
-    const blockB = parseInt(b.block, 10) || 99999;
-    if (blockA !== blockB) return blockA - blockB;
-    const numA = parseInt(String(a.paddle).replace(/\D/g, ''), 10) || 99999;
-    const numB = parseInt(String(b.paddle).replace(/\D/g, ''), 10) || 99999;
-    return numA - numB;
-  });
+  if (sortOrder === 'alphabetical') {
+    sortByLastName(paddleRows);
+  } else {
+    paddleRows.sort((a, b) => {
+      const blockA = parseInt(a.block, 10) || 99999;
+      const blockB = parseInt(b.block, 10) || 99999;
+      if (blockA !== blockB) return blockA - blockB;
+      const numA = parseInt(String(a.paddle).replace(/\D/g, ''), 10) || 99999;
+      const numB = parseInt(String(b.paddle).replace(/\D/g, ''), 10) || 99999;
+      return numA - numB;
+    });
+  }
 
   const result = [];
   for (const b of buckets) {
-    const rowsForBucket = b.id === 'paddle' ? paddleRows : (byBucket.get(b.id) || []);
+    let rowsForBucket = byBucket.get(b.id) || [];
+    if (b.id !== 'paddle') {
+      if (sortOrder === 'alphabetical') sortByLastName(rowsForBucket);
+    } else {
+      rowsForBucket = paddleRows;
+    }
     result.push(...rowsForBucket);
   }
 
@@ -897,6 +923,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (loadFromStorage(STORAGE_KEYS.reportDate)) reportDateEl.value = loadFromStorage(STORAGE_KEYS.reportDate);
   const savedLabel = loadFromStorage(STORAGE_KEYS.exportLabel);
   if (savedLabel) document.getElementById('exportLabel').value = savedLabel;
+  const savedSort = loadFromStorage(STORAGE_KEYS.sortOrder);
+  if (savedSort === 'alphabetical') document.getElementById('sortOrder').value = 'alphabetical';
   const pad = loadFromStorage(STORAGE_KEYS.columnPadding);
   if (pad != null && pad !== '') columnPaddingEl.value = pad;
 
@@ -923,10 +951,12 @@ document.addEventListener('DOMContentLoaded', () => {
   persist(STORAGE_KEYS.reportTitle, reportTitleEl);
   persist(STORAGE_KEYS.reportDate, reportDateEl);
   persist(STORAGE_KEYS.exportLabel, document.getElementById('exportLabel'));
+  persist(STORAGE_KEYS.sortOrder, document.getElementById('sortOrder'));
   persist(STORAGE_KEYS.columnPadding, columnPaddingEl);
 
   reportTitleEl.addEventListener('input', reapplyTransform);
   reportDateEl.addEventListener('input', reapplyTransform);
+  document.getElementById('sortOrder').addEventListener('change', reapplyTransform);
   document.getElementById('columnOverride').addEventListener('input', reapplyTransform);
 
   });
